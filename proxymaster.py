@@ -319,10 +319,11 @@ class ProxyMaster(threading.Thread):
                 server_connection = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
                 client_connection, addr = self.proxy_socket.accept()
                 print 'new connection from', addr
-                if len(self.masters) > 0 and self.masters.values()[0].masteruri is not None:
-                    print 'opening connection to', self.masters.values()[0].masteruri
-                    master = urlparse(self.masters.values()[0].masteruri)
-                    server_connection.connect((master.hostname, master.port))
+                master = self.getPreferedMaster()
+                if master is not None:
+                    print 'opening connection to', master.masteruri
+                    masteruri = urlparse(master.masteruri)
+                    server_connection.connect((masteruri.hostname, masteruri.port))
                     client_connections[client_connection] = server_connection;
                     server_connections[server_connection] = client_connection;
                     
@@ -414,6 +415,17 @@ class ProxyMaster(threading.Thread):
     except:
       pass
 
+  def getPreferedMaster(self):
+    with self.__lock:
+        maxq = 0
+        selected = None
+
+        for m in self.masters:
+            master = self.masters[m]
+            if master.masteruri != None and master.quality > maxq:
+                selected = master
+                maxq = master.quality
+        return selected 
 
   def changed_masterstate(self, master_state):
     '''
